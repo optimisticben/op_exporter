@@ -85,8 +85,8 @@ func getRollupGasPrices() {
 			}
 			gasPrice.WithLabelValues(
 				"kovan", "layer2").Set(float64(l2GasPrice))
-			log.Warnln("Got L1 gas prices: ", l1GasPrice)
-			log.Warnln("Got L2 gas prices: ", l2GasPrice)
+			log.Infoln("Got L1 gas prices: ", l1GasPrice)
+			log.Infoln("Got L2 gas prices: ", l2GasPrice)
 
 		}
 		time.Sleep(time.Duration(30) * time.Second)
