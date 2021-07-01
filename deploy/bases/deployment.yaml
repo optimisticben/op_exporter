@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: op-exporter
+  labels:
+    app: op-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: op-exporter
+  template:
+    metadata:
+      labels:
+        app: op-exporter
+    spec:
+      containers:
+        - name: exporter
+          image: optimisticben/op_exporter
+          ports:
+            - name: metrics
+              containerPort: 9100
+          env:
+            - name: NETWORK
+              value: mainnet
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+          readinessProbe:
+            httpGet:
+              path: /
+              port: metrics
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: "1"
+            requests:
+              memory: 128Mi
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: op-exporter
+  labels:
+    app: op-exporter
+spec:
+  type: NodePort
+  selector:
+    app: op-exporter
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: 9100
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: op-exporter
+spec:
+  endpoints:
+    - port: metrics
+  selector:
+    matchLabels:
+      app: op-exporter

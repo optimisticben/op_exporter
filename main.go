@@ -77,15 +77,17 @@ func getRollupGasPrices() {
 				log.Warnln("Error converting gasPrice " + l1GasPriceString)
 			}
 			gasPrice.WithLabelValues(
-				"kovan", "layer1").Set(float64(l1GasPrice))
+				*networkLabel, "layer1").Set(float64(l1GasPrice))
 			l2GasPriceString := rollupGasPrices.L2GasPrice
 			l2GasPrice, err := hexutil.DecodeUint64(l2GasPriceString)
 			if err != nil {
 				log.Warnln("Error converting gasPrice " + l2GasPriceString)
 			}
 			gasPrice.WithLabelValues(
-				"kovan", "layer2").Set(float64(l2GasPrice))
+				*networkLabel, "layer2").Set(float64(l2GasPrice))
+			log.Infoln("Got L1 gas string: ", l1GasPriceString)
 			log.Infoln("Got L1 gas prices: ", l1GasPrice)
+			log.Infoln("Got L2 gas string: ", l2GasPriceString)
 			log.Infoln("Got L2 gas prices: ", l2GasPrice)
 
 		}

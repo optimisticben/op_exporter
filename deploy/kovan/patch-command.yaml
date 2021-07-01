@@ -1,0 +1,14 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: op-exporter
+spec:
+  template:
+    spec:
+      containers:
+        - name: exporter
+          command:
+            - op_exporter
+            - --rpc.provider=https://kovan-sequencer.optimism.io
+            - --label.network=kovan
