@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -31,7 +32,23 @@ var (
 		"version",
 		"Display binary version.",
 	).Default("False").Bool()
+	unhealthyTimePeriod = time.Minute * 10
 )
+
+type healthCheck struct {
+	mu         *sync.RWMutex
+	height     uint64
+	healthy    bool
+	updateTime time.Time
+}
+
+func healthHandler(health *healthCheck) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		health.mu.RLock()
+		defer health.mu.RUnlock()
+		w.Write([]byte(fmt.Sprintf(`{ "healthy": "%t" }`, health.healthy)))
+	}
+}
 
 func main() {
 	kingpin.HelpFlag.Short('h')
@@ -46,22 +63,67 @@ func main() {
 	log.Infoln("Starting op_exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())
 
+	health := healthCheck{
+		mu:         new(sync.RWMutex),
+		height:     0,
+		healthy:    false,
+		updateTime: time.Now(),
+	}
 	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/health", healthHandler(&health))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
 		<head><title>OP Exporter</title></head>
 		<body>
 		<h1>OP Exporter</h1>
 		<p><a href="/metrics">Metrics</a></p>
+		<p><a href="/health">Health</a></p>
 		</body>
 		</html>`))
 	})
 	go getRollupGasPrices()
+	go getBlockNumber(&health)
 	log.Infoln("Listening on", *listenAddress)
 	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
 		log.Fatal(err)
 	}
 
+}
+
+func getBlockNumber(health *healthCheck) {
+	rpcClient := jsonrpc.NewClientWithOpts(*rpcProvider, &jsonrpc.RPCClientOpts{})
+	var blockNumberResponse *string
+	for {
+		if err := rpcClient.CallFor(&blockNumberResponse, "eth_blockNumber"); err != nil {
+			log.Warnln("Error calling eth_blockNumber", err)
+		} else {
+			log.Infoln("Got block number: ", *blockNumberResponse)
+			health.mu.Lock()
+			currentHeight, err := hexutil.DecodeUint64(*blockNumberResponse)
+			blockNumber.WithLabelValues(
+				*networkLabel, "layer2").Set(float64(currentHeight))
+			if err != nil {
+				log.Warnln("Error decoding block height", err)
+				continue
+			}
+			// TODO: handle error
+			lastHeight := health.height
+			// If the currentHeight is the same as the lastHeight
+			if currentHeight == lastHeight {
+				currentTime := time.Now()
+				lastTime := health.updateTime
+				if currentTime.Add(-unhealthyTimePeriod).Before(lastTime) {
+					health.healthy = false
+				}
+			} else {
+				health.height = currentHeight
+				health.updateTime = time.Now()
+				health.healthy = true
+			}
+			health.mu.Unlock()
+		}
+		time.Sleep(time.Duration(30) * time.Second)
+	}
 }
 
 func getRollupGasPrices() {

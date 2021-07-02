@@ -12,9 +12,16 @@ var (
 			Help: "Gas price."},
 		[]string{"network", "layer"},
 	)
+	blockNumber = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "op_blocknumber",
+			Help: "Current block number."},
+		[]string{"network", "layer"},
+	)
 )
 
 func init() {
 	//Register metrics with prometheus
 	prometheus.MustRegister(gasPrice)
+	prometheus.MustRegister(blockNumber)
 }
