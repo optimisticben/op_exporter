@@ -32,7 +32,11 @@ var (
 		"version",
 		"Display binary version.",
 	).Default("False").Bool()
-	unhealthyTimePeriod = time.Minute * 10
+	unhealthyTimePeriod = kingpin.Flag(
+		"wait.minutes",
+		"Number of minutes to wait for the next block before marking provider unhealthy.",
+	).Default("10").Int()
+	//unhealthyTimePeriod = time.Minute * 10
 )
 
 type healthCheck struct {
@@ -59,7 +63,6 @@ func main() {
 		os.Exit(0)
 	}
 	log.Infoln("exporter config", *listenAddress, *rpcProvider, *networkLabel)
-
 	log.Infoln("Starting op_exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())
 
@@ -116,7 +119,7 @@ func getBlockNumber(health *healthCheck) {
 				currentTime := time.Now()
 				lastTime := health.updateTime
 				log.Warnln(fmt.Sprintf("Heights are the same, %v, %v", currentTime, lastTime))
-				if lastTime.Add(unhealthyTimePeriod).Before(currentTime) {
+				if lastTime.Add(time.Duration(*unhealthyTimePeriod) * time.Minute).Before(currentTime) {
 					health.healthy = false
 					log.Warnln("Heights are the same for the unhealthyTimePeriod, setting unhealthy")
 				}
@@ -157,7 +160,6 @@ func getRollupGasPrices() {
 			log.Infoln("Got L1 gas prices: ", l1GasPrice)
 			log.Infoln("Got L2 gas string: ", l2GasPriceString)
 			log.Infoln("Got L2 gas prices: ", l2GasPrice)
-
 		}
 		time.Sleep(time.Duration(30) * time.Second)
 	}
