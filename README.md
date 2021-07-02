@@ -8,7 +8,16 @@ A prometheus exporter to collect information from an Optimistic Ethereum node an
 go build && ./op_exporter --rpc.provider="https://kovan-sequencer.optimism.io" --label.network="kovan"
 ```
 
-## Metrics
+## Health endpoint `/health`
+
+Returns json describing the health of the sequencer based on the time since a block height update.
+
+```
+$ curl http://localhost:9100/health
+{ "healthy": "false" }
+```
+
+## Metrics endpoint `/metrics`
 
 ```
 # HELP op_gasPrice Gas price.

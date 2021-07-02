@@ -95,7 +95,10 @@ func getBlockNumber(health *healthCheck) {
 	var blockNumberResponse *string
 	for {
 		if err := rpcClient.CallFor(&blockNumberResponse, "eth_blockNumber"); err != nil {
-			log.Warnln("Error calling eth_blockNumber", err)
+			health.mu.Lock()
+			health.healthy = false
+			health.mu.Unlock()
+			log.Warnln("Error calling eth_blockNumber, setting unhealthy", err)
 		} else {
 			log.Infoln("Got block number: ", *blockNumberResponse)
 			health.mu.Lock()
@@ -106,16 +109,19 @@ func getBlockNumber(health *healthCheck) {
 				log.Warnln("Error decoding block height", err)
 				continue
 			}
-			// TODO: handle error
 			lastHeight := health.height
-			// If the currentHeight is the same as the lastHeight
+			// If the currentHeight is the same as the lastHeight, check that
+			// the unhealthyTimePeriod has passed and update health.healthy
 			if currentHeight == lastHeight {
 				currentTime := time.Now()
 				lastTime := health.updateTime
-				if currentTime.Add(-unhealthyTimePeriod).Before(lastTime) {
+				log.Warnln(fmt.Sprintf("Heights are the same, %v, %v", currentTime, lastTime))
+				if lastTime.Add(unhealthyTimePeriod).Before(currentTime) {
 					health.healthy = false
+					log.Warnln("Heights are the same for the unhealthyTimePeriod, setting unhealthy")
 				}
 			} else {
+				log.Warnln("New block height detected, setting healthy")
 				health.height = currentHeight
 				health.updateTime = time.Now()
 				health.healthy = true
